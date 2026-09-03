@@ -32,7 +32,10 @@ module tb_cpu;
     end
 
     integer cycles;
+    integer retired_instructions;
     integer failures;
+    real cpi;
+    real ipc;
 
     task expect_reg;
         input [4:0] reg_id;
@@ -70,6 +73,7 @@ module tb_cpu;
     initial begin
         failures = 0;
         cycles = 0;
+        retired_instructions = 0;
         rst_n = 1'b0;
         repeat (4) @(posedge clk);
         rst_n = 1'b1;
@@ -78,6 +82,7 @@ module tb_cpu;
             @(posedge clk);
             cycles = cycles + 1;
             if (debug_wb_valid) begin
+                retired_instructions = retired_instructions + 1;
                 $display("WB pc=%08x we=%0d rd=x%0d data=%08x",
                          debug_wb_pc, debug_wb_reg_write, debug_wb_rd, debug_wb_data);
             end
@@ -89,6 +94,13 @@ module tb_cpu;
         end
 
         #1;
+        if (retired_instructions > 0) begin
+            cpi = cycles * 1.0 / retired_instructions;
+            ipc = retired_instructions * 1.0 / cycles;
+            $display("PERF: cycles=%0d retired=%0d CPI=%0.3f IPC=%0.3f",
+                     cycles, retired_instructions, cpi, ipc);
+        end
+
         expect_reg(5'd1,  32'd5);
         expect_reg(5'd2,  32'd7);
         expect_reg(5'd3,  32'd12);
