@@ -1,0 +1,9 @@
+vivado_project/
+*.jou
+*.log
+*.str
+*.pb
+*.wdb
+*.vcd
+*.vvp
+*.fst
