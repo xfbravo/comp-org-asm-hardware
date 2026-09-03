@@ -1,0 +1,15 @@
+vivado_project/
+*.cache/
+*.gen/
+*.hw/
+*.ip_user_files/
+*.runs/
+*.sim/
+*.jou
+*.log
+*.str
+*.pb
+*.wdb
+*.vcd
+*.vvp
+*.fst
