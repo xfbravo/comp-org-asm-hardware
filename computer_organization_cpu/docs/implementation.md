@@ -1,64 +1,62 @@
-# Implementation Notes
+# 实现说明
 
-## Source Basis
+## 代码来源
 
-The old `小学期/计组/CPU_sim` project implements a direct-wired five-stage
-pipeline with Vivado ROM IP, byte-addressed RAM, forwarding, load-use stalls,
-and branch flushing. The `risc-v-cpu-pipeline` directory reorganizes the same
-idea into stage-level modules and adds a board-facing bus plus LED, switch, and
-seven-segment interfaces.
+往年 `小学期/计组/CPU_sim` 工程实现了一个直接连线式的五级流水线处理器，包含取指、译码、执行、访存、写回、数据前递、载入使用冒险暂停和分支冲刷等内容。该旧工程使用 Vivado 生成的指令存储器 IP，代码和工程生成物混在一起，后续维护不够方便。
 
-This refactor keeps the CPU-focused part clean and simulation-friendly. It does
-not depend on generated Vivado IP, so the design can be compiled from source and
-tested with a small memory file.
+`小学期/计组/risc-v-cpu-pipeline` 目录中的代码把处理器进一步整理成了阶段级模块，并加入了面向下板的总线、拨码开关、发光二极管和数码管接口。这个版本更接近上板结构，但仿真和调试入口相对复杂。
 
-## Architecture
+本次重构保留上述两套代码中的核心思路，重新整理出一个更适合计算机组成部分仿真的处理器工程。新工程不依赖 Vivado 生成的存储器 IP，指令存储器采用行为级模型和内存初始化文件，便于直接编译、仿真和替换测试程序。
 
-The CPU is a five-stage RV32I pipeline:
+## 总体结构
 
-- IF fetches from `instr_mem` using a byte-addressed PC.
-- ID decodes the instruction, reads the register file, and creates immediates.
-- EX selects forwarded operands, runs the ALU, and resolves branches/jumps.
-- MEM performs byte-addressed loads and stores in `data_mem`.
-- WB selects ALU, memory, or PC+4 data and writes the register file.
+处理器采用五级流水线结构：
 
-Branches and jumps are predicted as not taken. A taken branch or jump is
-resolved in EX, then the wrong-path IF/ID and ID/EX contents are flushed.
+- 取指阶段：程序计数器给出字节地址，`instr_mem` 根据地址读取指令。
+- 译码阶段：`controller` 生成控制信号，`reg_file` 读取寄存器，`imm_gen` 生成立即数。
+- 执行阶段：根据前递结果选择操作数，`alu` 完成运算，`branch_unit` 判断分支和跳转目标。
+- 访存阶段：`data_mem` 完成字节、半字、字的读写，并处理符号扩展和零扩展。
+- 写回阶段：从运算结果、访存结果或 `PC + 4` 中选择写回数据。
 
-## Supported Instructions
+分支和跳转默认按照“不跳转”取下一条指令。若执行阶段发现分支成立或遇到跳转指令，则将程序计数器重定向到目标地址，并冲刷已经进入取指/译码路径的错误指令。
 
-The control path covers the common RV32I integer subset:
+## 支持的指令
 
-- R type: `add`, `sub`, `sll`, `slt`, `sltu`, `xor`, `srl`, `sra`, `or`, `and`
-- I type: `addi`, `slti`, `sltiu`, `xori`, `ori`, `andi`, `slli`, `srli`, `srai`
-- Memory: `lb`, `lh`, `lw`, `lbu`, `lhu`, `sb`, `sh`, `sw`
-- Control: `beq`, `bne`, `blt`, `bge`, `bltu`, `bgeu`, `jal`, `jalr`
-- Upper immediates: `lui`, `auipc`
+当前控制通路覆盖常用的 32 位整数指令子集：
 
-The testbench treats `ecall` as a halt marker.
+- 寄存器型运算：`add`、`sub`、`sll`、`slt`、`sltu`、`xor`、`srl`、`sra`、`or`、`and`
+- 立即数型运算：`addi`、`slti`、`sltiu`、`xori`、`ori`、`andi`、`slli`、`srli`、`srai`
+- 访存指令：`lb`、`lh`、`lw`、`lbu`、`lhu`、`sb`、`sh`、`sw`
+- 控制转移指令：`beq`、`bne`、`blt`、`bge`、`bltu`、`bgeu`、`jal`、`jalr`
+- 高位立即数指令：`lui`、`auipc`
 
-## Hazard Handling
+仿真平台将 `ecall` 作为程序结束标记。处理器执行到该指令写回阶段后，`halted` 信号拉高，测试平台开始检查寄存器和内存结果。
 
-The forwarding unit selects EX/MEM or MEM/WB results for both EX operands. It
-does not forward load data from EX/MEM because the value is not ready there.
-The hazard unit detects a load-use dependency between ID/EX and IF/ID, freezes
-PC and IF/ID for one cycle, and injects a bubble into ID/EX.
+## 冒险处理
 
-The register file writes on the falling edge. That mirrors the timing pattern
-used in the old organized pipeline and avoids ambiguity when WB writes a
-register needed by an instruction currently decoding.
+数据冒险主要通过前递解决。`forwarding_unit` 会比较执行阶段源寄存器与后续流水级目的寄存器，如果需要，就从执行/访存流水寄存器或访存/写回流水寄存器取最新结果作为执行阶段操作数。
 
-## Simulation
+载入使用冒险需要额外暂停一个周期。因为载入指令的数据要到访存阶段后才有效，无法从执行/访存阶段直接前递给下一条指令。`hazard_unit` 检测到这种情况后，会冻结程序计数器和取指/译码流水寄存器，并向译码/执行流水寄存器注入一个气泡。
 
-`sim/program.mem` contains a small hand-encoded program that checks:
+寄存器堆在时钟下降沿写入，在组合逻辑中读取。这样可以避免写回阶段写寄存器和译码阶段读同一寄存器时产生时序歧义。
 
-- ALU arithmetic and immediate instructions
-- EX/MEM and MEM/WB forwarding
-- load-use stall insertion
-- store then load
-- taken and not-taken branches
-- `lui`, `auipc`, `jal`, `jalr`
-- byte and halfword loads/stores with sign and zero extension
-- signed and unsigned set-less-than behavior
+## 仿真覆盖
 
-`sim/tb_cpu.v` observes final register and memory values and reports pass/fail.
+`sim/program.mem` 中保存了一段手工编码的测试程序。该程序覆盖以下行为：
+
+- 算术运算和立即数运算
+- 执行/访存阶段到执行阶段的前递
+- 访存/写回阶段到执行阶段的前递
+- 载入使用冒险暂停
+- 存储后再载入
+- 分支成立和分支不成立
+- `lui`、`auipc`、`jal`、`jalr`
+- 字节和半字的存取
+- 有符号载入和无符号载入
+- 有符号小于比较和无符号小于比较
+
+`sim/tb_cpu.v` 会在程序执行结束后检查关键寄存器和内存位置。全部检查通过时，Vivado 控制台会输出：
+
+```text
+CPU TEST PASSED in 37 cycles
+```
