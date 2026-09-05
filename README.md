@@ -8,6 +8,14 @@
 computer_organization_cpu/
 ```
 
+汇编实验的 CPU、UART、MMIO 和 EES-338 上板工程位于：
+
+```text
+assembly_uart_vivado2019_2/
+```
+
+该目录不依赖 Vivado 缓存或本机绝对工程路径。使用 Vivado 2019.2 执行目录内的 `vivado/create_project.tcl` 即可重建工程，详细步骤见该目录的 README。
+
 该目录中包含一个可直接打开的 Vivado 2022.1 工程：
 
 ```text
