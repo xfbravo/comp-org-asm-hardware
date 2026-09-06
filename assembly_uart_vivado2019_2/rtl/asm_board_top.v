@@ -1,5 +1,9 @@
 `timescale 1ns / 1ps
-module asm_board_top (
+module asm_board_top #(
+    parameter PROGRAM_FILE = "hello_uart.mem",
+    parameter integer UART_CLOCK_HZ = 50_000_000,
+    parameter integer UART_BAUD_HZ = 115200
+) (
     input wire clk, input wire rst_n, input wire uart_rxd, input wire key_next,
     output wire uart_txd, output wire [7:0] anode, output wire [7:0] segment
 );
@@ -15,7 +19,11 @@ module asm_board_top (
         if (!rst_n) page <= 3'd4;
         else if (key_pulse) page <= (page == 3'd5) ? 0 : page + 1'b1;
     end
-    asm_cpu_core #(.PROGRAM_FILE("hello_uart.mem")) u_cpu (
+    asm_cpu_core #(
+        .PROGRAM_FILE(PROGRAM_FILE),
+        .UART_CLOCK_HZ(UART_CLOCK_HZ),
+        .UART_BAUD_HZ(UART_BAUD_HZ)
+    ) u_cpu (
         .clk(cpu_clk), .rst_n(rst_n), .uart_rxd(uart_rxd), .uart_txd(uart_txd), .seg7_value(seg7),
         .halted(halted), .pc_current(pc), .debug_wb_valid(wb_valid), .debug_wb_pc(),
         .debug_wb_reg_write(wb_we), .debug_wb_rd(wb_rd), .debug_wb_data(wb_data),

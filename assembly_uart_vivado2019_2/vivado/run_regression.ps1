@@ -36,7 +36,7 @@ $tests = @(
     @{ Top = 'tb_cpu_uart';        Marker = 'CPU_UART_TEST_PASSED' },
     @{ Top = 'tb_cpu_uart_echo';   Marker = 'CPU_UART_ECHO_TEST_PASSED' },
     @{ Top = 'tb_seven_seg_scan';  Marker = 'SEVEN_SEG_2026_TEST_PASSED' },
-    @{ Top = 'tb_board_top';       Marker = 'BOARD_TOP_PORTS_PASS' }
+    @{ Top = 'tb_board_top';       Marker = 'BOARD_TOP_TEST_PASSED' }
 )
 
 Push-Location $projectRoot
@@ -52,6 +52,11 @@ try {
         }
         if (-not (Select-String -Path $log -SimpleMatch $test.Marker -Quiet)) {
             throw "$top did not print expected marker: $($test.Marker)"
+        }
+        $failureMatches = Select-String -Path $log -Pattern '^\s*[A-Z0-9]+(?:_[A-Z0-9]+)*_(?:FAIL|FAILED)(?:\s|$)'
+        if ($failureMatches) {
+            $details = ($failureMatches | ForEach-Object { $_.Line.Trim() }) -join ' | '
+            throw "$top printed failure marker(s): $details"
         }
         Write-Host "REGRESSION_PASS $top"
     }

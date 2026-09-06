@@ -16,3 +16,8 @@ build/
 *.wdb
 *.str
 usage_statistics_webtalk.*
+hs_err_*.dmp
+ip/packager_work/
+ip/smoke/work/
+ip/*.jou
+ip/*.log
