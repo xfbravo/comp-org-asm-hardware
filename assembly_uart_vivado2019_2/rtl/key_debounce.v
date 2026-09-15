@@ -2,7 +2,8 @@
 module key_debounce #(parameter integer COUNT_MAX=500000) (
     input wire clk, input wire rst_n, input wire key_in, output reg key_pulse
 );
-    reg sync0, sync1, stable;
+    (* ASYNC_REG="TRUE" *) reg sync0, sync1;
+    reg stable;
     integer count;
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin sync0<=0; sync1<=0; stable<=0; count<=0; key_pulse<=0; end

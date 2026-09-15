@@ -1,62 +1,28 @@
-# UART MMIO Bridge IP
+# UART MMIO Bridge IP（Vivado 2019.2）
 
-This directory contains the packaged custom IP required by the assembly and
-interface course design.
+VLNV：`bit.edu.cn:interface:uart_mmio_bridge:1.0`。
+维护源仅为项目 `rtl/uart_controller.v` 和 `rtl/uart_mmio_bridge.v`；不要直接修改包内副本。
+参数 CLOCK_HZ 默认 50000000，BAUD_HZ 默认 115200，FIFO 固定 8 字节。
 
-## Interface contract
+| 地址 | 行为 |
+|---|---|
+| 0x40000000 | TX 写；仅在 ready=1 时接受 |
+| 0x40000004 | RX 读旧队首并在本次边沿出队；空读返回 0；清除已有错误 |
+| 0x40000008 | 读状态，保持错误标志 |
+| 0x40000010 | 写 32 位显示寄存器 |
 
-The top-level IP is `uart_mmio_bridge`. Its public parameters are:
+状态：bit0 TX ready（包含 busy 和待接受的 tx_start），bit1 RX 非空，bit2 帧错误，bit3 溢出，bit4 数量≥7，bits8:5 数量0～8，bits31:9=0。新错误与清除同周期发生时，新错误优先。
 
-- `CLOCK_HZ`: UART clock frequency, default `50000000`;
-- `BAUD_HZ`: UART baud rate, default `115200`.
+每个 clk 上升沿是一次 MMIO 事务。连续周期的 mmio_read 可读取不同队首；uart_rx_ack 是当前 RX 地址读事务的组合确认，不能再额外延迟一拍。seg7_we 和 tx_start 是寄存输出。
 
-The MMIO map is fixed:
+rst_n 异步有效，消费者应在 clk 域同步释放；本项目板级顶层已实现同步释放。RX 两级同步、起始位中点确认、逐位中心单点采样、停止位检查；无多数表决过采样。错误停止位丢弃该帧，持续低电平等待高电平恢复。
 
-| Address | Access | Meaning |
-| --- | --- | --- |
-| `0x40000000` | write | transmit low byte |
-| `0x40000004` | read | received byte |
-| `0x40000008` | read | bit 0 transmit-ready, bit 1 receive-ready |
-| `0x40000010` | write | seven-segment display value |
-
-The package includes `uart_mmio_bridge.v` and its internal
-`uart_controller.v` dependency. The public port list is intentionally kept
-identical to the tested RTL bridge so it can be inserted at the CPU MMIO
-boundary without changing the CPU or address map.
-
-## Clock, reset, and UART electrical contract
-
-- `clk` is the rising-edge synchronous clock. Set `CLOCK_HZ` to its actual
-  frequency; the default is 50 MHz.
-- `rst_n` is an asynchronous active-low reset and must be released high before
-  MMIO transactions.
-- `uart_rxd` and `uart_txd` are single-ended 3.3 V LVCMOS-level UART signals
-  external to the IP. The idle level is high and the protocol is 115200 baud,
-  8 data bits, no parity, one stop bit (8N1) by default. The board-level XDC
-  assigns the EES-338 pins and I/O standard.
-- `mmio_read` and `mmio_write` are one-cycle request strobes in the `clk`
-  domain. `mmio_addr` and `mmio_wdata` must remain valid for the request
-  cycle. `uart_rx_ack` and `seg7_we` are one-cycle output strobes.
-
-## Rebuild the package
-
-From Vivado 2019.2 Tcl:
-
-```tcl
-cd D:/path/to/comp-org-asm-hardware/assembly_uart_vivado2019_2
-source ./vivado/package_uart_ip.tcl
-```
-
-The generated package root is `ip/uart_mmio_bridge_1_0/component.xml`.
-Vivado work products are written below `ip/packager_work/` and are ignored by
-Git.
-
-## Smoke test
-
-The smoke test creates a fresh consumer project, adds this directory as a
-custom IP repository, instantiates the IP through the catalog, and verifies
-MMIO transmit, receive, acknowledge, and seven-segment writes.
+在汇编项目目录运行：
 
 ```powershell
-.\vivado\run_ip_smoke.ps1 -VivadoPath 'D:\Xilinx\Vivado\2019.2\bin\vivado.bat'
+.\vivado\run_ip_smoke.ps1 -VivadoPath 'D:\Xilinx_2019\Vivado\2019.2\bin\vivado.bat'
 ```
+
+脚本从维护源复制并重打包，检查完整性和副本一致性；独立消费者通过 IP catalog 生成目标并综合。消费者仿真复用 `sim/tb_uart_mmio.v` 的事务，与临时重命名的系统 RTL 逐周期比较全部公开输出，同时检查 TX 位流、连续 RX 出队、状态、错误与数码管。参考 RTL 仅供仿真，消费者综合不依赖它。
+
+完成标志为 UART_IP_PACKAGE_PASS 和 UART_IP_SMOKE_PASS。最终日志和哈希记录位于 build；packager/consumer 缓存自动清理，封装 HDL、component.xml 和 xgui 元数据保留。

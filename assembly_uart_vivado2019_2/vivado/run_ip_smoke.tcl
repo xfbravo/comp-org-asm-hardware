@@ -1,3 +1,4 @@
+if {![regexp {^2019\.2(?:\.|$)} [version -short]]} {error "Vivado 2019.2 required"}
 # Build a clean consumer project from the packaged custom IP and run its smoke test.
 set root [file normalize [file join [file dirname [info script]] ..]]
 set ip_root [file join $root ip uart_mmio_bridge_1_0]
@@ -29,28 +30,28 @@ set_property -dict [list \
 ] [get_ips uart_mmio_bridge_0]
 generate_target all [get_ips uart_mmio_bridge_0]
 
-# Add the packaged HDL and generated synthesis wrapper explicitly so the
-# clean consumer can be synthesized in this process without Vivado launching
-# a concurrent dependency run. Keep these synthesis sources out of simulation;
-# the IP's generated simulation target supplies them there.
-set ip_hdl_files [list \
-    [file join $ip_root hdl uart_mmio_bridge.v] \
-    [file join $ip_root hdl uart_controller.v] \
-]
-add_files -fileset sources_1 $ip_hdl_files
-set_property used_in_simulation false [get_files $ip_hdl_files]
-set synth_wrappers [glob -nocomplain -directory [file join $project_dir ip] */synth/uart_mmio_bridge_0.v]
-if {[llength $synth_wrappers] == 0} {
-    error "Generated IP synthesis wrapper not found."
-}
-set synth_wrapper [lindex [lsort -dictionary $synth_wrappers] end]
-add_files -fileset sources_1 $synth_wrapper
-set_property used_in_simulation false [get_files $synth_wrapper]
+# Synthesize generated catalog sources in-context; do not duplicate IP sub-design files.
+set_property generate_synth_checkpoint false [get_files -all *.xci]
 
 add_files -fileset sim_1 [file join $root ip smoke tb_uart_mmio_bridge_ip.v]
 add_files -fileset sources_1 [file join $root ip smoke uart_mmio_bridge_consumer.v]
 set_property top uart_mmio_bridge_consumer [get_filesets sources_1]
 set_property top_auto_set 0 [get_filesets sources_1]
+# The consumer is independently synthesized from the packaged catalog IP.
+# A simulation-only, renamed snapshot of system RTL checks every visible output.
+set reference_files {}
+foreach source_file {uart_controller.v uart_mmio_bridge.v} {
+    set f [open [file join $root rtl $source_file] r]
+    set source_text [read $f]
+    close $f
+    set ref_file [file join $work_root reference_$source_file]
+    set f [open $ref_file w]
+    puts -nonewline $f [string map {uart_mmio_bridge reference_uart_mmio_bridge uart_controller reference_uart_controller} $source_text]
+    close $f
+    lappend reference_files $ref_file
+}
+add_files -fileset sim_1 $reference_files
+set_property include_dirs [list [file join $root sim]] [get_filesets sim_1]
 set_property top tb_uart_mmio_bridge_ip [get_filesets sim_1]
 set_property top_auto_set 0 [get_filesets sim_1]
 update_compile_order -fileset sources_1

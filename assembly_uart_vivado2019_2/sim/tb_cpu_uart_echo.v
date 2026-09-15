@@ -26,14 +26,15 @@ module tb_cpu_uart_echo;
     end
   endtask
   initial begin
-    failures=0; repeat(4) @(posedge clk); rst_n=1; repeat(20) @(posedge clk);
+    failures=0; repeat(4) @(negedge clk); rst_n=1; repeat(20) @(posedge clk);
     fork
       send_uart_byte(8'h5a);
       receive_uart_byte(echoed);
     join
     if(echoed!==8'h5a) begin $display("CPU_UART_ECHO_BYTE_FAIL got=%02x",echoed); failures=failures+1; end
     if(seg7!==32'h0000005a) begin $display("CPU_UART_ECHO_SEG7_FAIL value=%08x",seg7); failures=failures+1; end
-    if(failures==0) $display("CPU_UART_ECHO_TEST_PASSED"); else $display("CPU_UART_ECHO_TEST_FAILED count=%0d",failures);
+    if(failures==0) $display("CPU_UART_ECHO_TEST_PASSED"); else $fatal(1,"CPU_UART_ECHO_TEST_FAILED count=%0d",failures);
     $finish;
   end
+    initial begin #2000000; $fatal(1,"REGRESSION_TIMEOUT"); end
 endmodule

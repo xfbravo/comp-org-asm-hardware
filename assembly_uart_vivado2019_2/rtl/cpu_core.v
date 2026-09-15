@@ -338,6 +338,8 @@ module asm_cpu_core #(
     wire        dmem_unsigned = ex_mem_load_unsigned;
 
     wire uart_tx_busy;
+    wire uart_frame_error, uart_rx_overrun;
+    wire [3:0] uart_rx_level;
     wire uart_rx_ready;
     wire [7:0] uart_rx_data;
     wire uart_tx_start;
@@ -355,6 +357,7 @@ module asm_cpu_core #(
         .uart_rxd(uart_rxd), .uart_txd(uart_txd),
         .uart_tx_busy(uart_tx_busy), .uart_rx_ready(uart_rx_ready),
         .uart_rx_data(uart_rx_data), .uart_tx_start(uart_tx_start),
+        .uart_frame_error(uart_frame_error), .uart_rx_overrun(uart_rx_overrun), .uart_rx_level(uart_rx_level),
         .uart_tx_data(uart_tx_data), .uart_rx_ack(uart_rx_ack),
         .seg7_we(seg7_we), .seg7_value(seg7_value)
     );
@@ -420,6 +423,6 @@ module asm_cpu_core #(
     assign debug_instr = if_instr;
     assign debug_x10 = reg_debug_x10;
     assign debug_mem0 = mem_debug_word0;
-    assign debug_uart_status = {30'd0, uart_rx_ready, ~uart_tx_busy};
+    assign debug_uart_status = {23'd0, uart_rx_level, (uart_rx_level >= 4'd7), uart_rx_overrun, uart_frame_error, uart_rx_ready, !(uart_tx_busy || uart_tx_start)};
 
 endmodule

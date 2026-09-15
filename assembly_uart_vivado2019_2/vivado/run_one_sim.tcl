@@ -1,3 +1,4 @@
+if {![regexp {^2019\.2(?:\.|$)} [version -short]]} {error "Vivado 2019.2 required"}
 # Run one behavioral simulation from the command line.
 # Usage: vivado -mode batch -source vivado/run_one_sim.tcl -tclargs <top>
 set root [file normalize [file join [file dirname [info script]] ..]]

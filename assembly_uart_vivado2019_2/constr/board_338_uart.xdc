@@ -36,5 +36,7 @@ set_property IOSTANDARD LVCMOS33 [get_ports {segment[*]}]
 # Reset, keys and UART are asynchronous board interfaces. The RTL contains
 # synchronizers for key_next and uart_rxd; display/UART outputs have no
 # synchronous external receiver timing requirement.
-set_false_path -from [get_ports {rst_n key_next uart_rxd}]
+set_false_path -from [get_ports rst_n] -to [get_pins -hier -filter {NAME =~ *u_board_reset/stages_reg*/CLR || NAME =~ *u_cpu_reset/stages_reg*/CLR}]
+set_false_path -from [get_ports uart_rxd] -to [get_pins -hier -filter {NAME =~ *u_uart/rx_meta_reg/D}]
+set_false_path -from [get_ports key_next] -to [get_pins -hier -filter {NAME =~ *u_key/sync0_reg/D}]
 set_false_path -to [get_ports {uart_txd anode[*] segment[*]}]

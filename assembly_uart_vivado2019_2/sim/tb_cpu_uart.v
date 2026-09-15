@@ -5,7 +5,7 @@ module tb_cpu_uart;
   localparam integer BIT_TIME_NS = 160;
   reg clk=0, rst_n=0, rx=1; wire tx; wire [31:0] seg7;
   wire halted, wb_valid, wb_we; wire [31:0] pc, wb_pc, wb_data, instr, x10, mem0, status; wire [4:0] wb_rd;
-  asm_cpu_core #(.PROGRAM_FILE("hello_uart.mem"), .UART_CLOCK_HZ(CLOCK_HZ), .UART_BAUD_HZ(BAUD_HZ)) dut(
+  asm_cpu_core #(.PROGRAM_FILE("hello_echo.mem"), .UART_CLOCK_HZ(CLOCK_HZ), .UART_BAUD_HZ(BAUD_HZ)) dut(
     .clk(clk),.rst_n(rst_n),.uart_rxd(rx),.uart_txd(tx),.seg7_value(seg7),.halted(halted),.pc_current(pc),
     .debug_wb_valid(wb_valid),.debug_wb_pc(wb_pc),.debug_wb_reg_write(wb_we),.debug_wb_rd(wb_rd),.debug_wb_data(wb_data),
     .debug_instr(instr),.debug_x10(x10),.debug_mem0(mem0),.debug_uart_status(status));
@@ -35,13 +35,14 @@ module tb_cpu_uart;
     end
   endtask
   initial begin
-    failures=0; repeat(4) @(posedge clk); rst_n=1;
+    failures=0; repeat(4) @(negedge clk); rst_n=1;
     expect_byte(8'h48); expect_byte(8'h69); expect_byte(8'h2e); expect_byte(8'h0d); expect_byte(8'h0a);
     cycles=0;
     while(cycles<500 && seg7!==32'h00002026) begin @(posedge clk); cycles=cycles+1; end
     if(seg7===32'h00002026) $display("CPU_MMIO_SEG7_PASS");
     else begin $display("CPU_MMIO_SEG7_FAIL seg7=%08x",seg7); failures=failures+1; end
-    if(failures==0) $display("CPU_UART_TEST_PASSED"); else $display("CPU_UART_TEST_FAILED count=%0d",failures);
+    if(failures==0) $display("CPU_UART_TEST_PASSED"); else $fatal(1,"CPU_UART_TEST_FAILED count=%0d",failures);
     $finish;
   end
+    initial begin #2000000; $fatal(1,"REGRESSION_TIMEOUT"); end
 endmodule

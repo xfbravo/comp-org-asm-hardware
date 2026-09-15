@@ -1,3 +1,4 @@
+if {![regexp {^2019\.2(?:\.|$)} [version -short]]} {error "Vivado 2019.2 required"}
 # Package uart_mmio_bridge as a reusable Vivado custom IP.
 # Run from Vivado 2019.2 in batch mode or source this file from Tcl.
 set root [file normalize [file join [file dirname [info script]] ..]]
@@ -35,7 +36,12 @@ set_property vendor_display_name {BIT Interface Controllers} $core
 set_property company_url {https://www.bit.edu.cn} $core
 ipx::save_core $core
 
-set integrity [ipx::check_integrity -quiet $core]
+ipx::update_checksums $core
+ipx::save_core $core
+set integrity [ipx::check_integrity $core]
 puts "IP_INTEGRITY=$integrity"
+if {!$integrity} {error "IP integrity check failed"}
 puts "IP_COMPONENT=[file normalize [file join $ip_root component.xml]]"
 close_project
+
+puts "UART_IP_PACKAGE_PASS"

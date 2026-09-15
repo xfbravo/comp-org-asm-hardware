@@ -10,7 +10,7 @@ module tb_board_top;
     wire [31:0] seg7_value;
     assign seg7_value = dut.seg7;
     asm_board_top #(
-        .PROGRAM_FILE("hello_uart.mem"),
+        .PROGRAM_FILE("hello_echo.mem"),
         .UART_CLOCK_HZ(CLOCK_HZ),
         .UART_BAUD_HZ(BAUD_HZ)
     ) dut(
@@ -71,7 +71,7 @@ module tb_board_top;
 
     initial begin
         failures = 0;
-        repeat(4) @(posedge clk);
+        repeat(4) @(negedge clk);
         if (uart_txd !== 1'b1) begin
             $display("BOARD_RESET_FAIL");
             failures = failures + 1;
@@ -129,7 +129,8 @@ module tb_board_top;
         end
 
         if (failures == 0) $display("BOARD_TOP_TEST_PASSED");
-        else $display("BOARD_TOP_TEST_FAILED count=%0d", failures);
+        else $fatal(1,"BOARD_TOP_TEST_FAILED count=%0d", failures);
         $finish;
     end
+    initial begin #2000000; $fatal(1,"REGRESSION_TIMEOUT"); end
 endmodule

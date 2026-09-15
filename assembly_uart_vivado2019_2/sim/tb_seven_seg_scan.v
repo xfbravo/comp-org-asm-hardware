@@ -50,7 +50,7 @@ module tb_seven_seg_scan;
     initial begin
         failures = 0;
         seen = 8'h00;
-        repeat (3) @(posedge clk);
+        repeat (3) @(negedge clk);
         rst_n = 1'b1;
 
         for (sample = 0; sample < 24; sample = sample + 1) begin
@@ -80,4 +80,5 @@ module tb_seven_seg_scan;
         #2000;
         $finish;
     end
+    initial begin #2000000; $fatal(1,"REGRESSION_TIMEOUT"); end
 endmodule

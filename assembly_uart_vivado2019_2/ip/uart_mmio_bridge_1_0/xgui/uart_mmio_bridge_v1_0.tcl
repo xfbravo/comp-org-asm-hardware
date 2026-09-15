@@ -37,3 +37,4 @@ proc update_MODELPARAM_VALUE.BAUD_HZ { MODELPARAM_VALUE.BAUD_HZ PARAM_VALUE.BAUD
 	# Procedure called to set VHDL generic/Verilog parameter value(s) based on TCL parameter value
 	set_property value [get_property value ${PARAM_VALUE.BAUD_HZ}] ${MODELPARAM_VALUE.BAUD_HZ}
 }
+

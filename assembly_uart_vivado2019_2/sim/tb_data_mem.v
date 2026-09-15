@@ -58,7 +58,7 @@ module tb_data_mem;
 
     initial begin
         #1100;
-        repeat (2) @(posedge clk);
+        repeat (2) @(negedge clk);
         rst_n = 1'b1;
         do_write(0, `MEM_WORD, 32'h80ff_7f01);
         check_read(0, `MEM_WORD, 1'b0, 32'h80ff_7f01);
@@ -77,7 +77,8 @@ module tb_data_mem;
             failures = failures + 1;
         end
         if (failures == 0) $display("DATA_MEM_TEST_PASSED");
-        else $display("DATA_MEM_TEST_FAILED count=%0d", failures);
+        else $fatal(1,"DATA_MEM_TEST_FAILED count=%0d", failures);
         $finish;
     end
+    initial begin #2000000; $fatal(1,"REGRESSION_TIMEOUT"); end
 endmodule
